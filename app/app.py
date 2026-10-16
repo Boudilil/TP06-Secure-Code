@@ -93,8 +93,9 @@ def login(request: Request, data: dict = Body(...)):
 
 @app.get("/search")
 def search(q: str = ""):
-    sql = f"SELECT id, name, price FROM products WHERE name LIKE '%{q}%'"
-    return [dict(r) for r in db().execute(sql).fetchall()]
+    sql = f"SELECT id, name, price FROM products WHERE name LIKE ?"
+    rows = db().execute(sql, (f"%{q}%",)).fetchall()
+    return [dict(r) for r in rows]
 
 
 @app.get("/ping")
