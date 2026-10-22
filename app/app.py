@@ -3,6 +3,7 @@
 Ne jamais déployer ce code tel quel. Votre mission : le rendre conforme.
 Documentation interactive : http://localhost:5000/docs
 """
+import ast
 import base64
 import hashlib
 import logging
@@ -16,7 +17,7 @@ import traceback
 import requests
 import uvicorn
 import yaml
-from fastapi import Body, FastAPI, Request
+from fastapi import Body, FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.middleware.sessions import SessionMiddleware
 from ipaddress import IPv4Address
@@ -117,7 +118,11 @@ def get_file(name: str):
 
 @app.post("/calc")
 def calc(data: dict = Body(...)):
-    return {"result": str(eval(data["expr"]))}
+    try:
+        value = ast.literal_eval(data["expr"])
+    except (ValueError, SyntaxError, KeyError):
+        raise HTTPException(status_code=400)
+    return {"result": value}
 
 
 @app.post("/import-yaml")
