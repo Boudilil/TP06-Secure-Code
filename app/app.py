@@ -19,6 +19,7 @@ import yaml
 from fastapi import Body, FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.middleware.sessions import SessionMiddleware
+from ipaddress import IPv4Address
 
 SECRET_KEY = "super-secret-key-123"
 DB_PATH = os.environ.get("DB_PATH", "shop.db")
@@ -99,8 +100,8 @@ def search(q: str = ""):
 
 
 @app.get("/ping")
-def ping(host: str = "127.0.0.1"):
-    out = subprocess.run(f"ping -c 1 {host}", shell=True, capture_output=True, text=True)
+def ping(host: IPv4Address):
+    out = subprocess.run(["ping", "-c", "1", str(host)], text=True, timeout=5, capture_output=True)
     return PlainTextResponse(out.stdout + out.stderr)
 
 
