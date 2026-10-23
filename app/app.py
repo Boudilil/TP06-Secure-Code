@@ -24,6 +24,7 @@ from ipaddress import IPv4Address
 from pydantic import BaseModel
 from pathlib import Path
 import html
+from urllib.parse import urlparse
 
 SECRET_KEY = "super-secret-key-123"
 DB_PATH = os.environ.get("DB_PATH", "shop.db")
@@ -148,7 +149,11 @@ async def import_profile(profile: Profile):
 
 @app.get("/fetch")
 def fetch(url: str):
-    r = requests.get(url, verify=False)
+    ALLOWED = {"api.partenaire.com"}
+    u = urlparse(url)
+    if u.scheme != "https" or u.hostname not in ALLOWED:
+        raise HTTPException(status_code=400)
+    r = requests.get(url, timeout=5, allow_redirects=False, verify=True)
     return PlainTextResponse(r.text[:500])
 
 
