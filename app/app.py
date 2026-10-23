@@ -23,6 +23,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from ipaddress import IPv4Address
 from pydantic import BaseModel
 from pathlib import Path
+import html
 
 SECRET_KEY = "super-secret-key-123"
 DB_PATH = os.environ.get("DB_PATH", "shop.db")
@@ -113,7 +114,7 @@ def ping(host: IPv4Address):
 
 @app.get("/hello")
 def hello(name: str = ""):
-    return HTMLResponse(f"<h1>Bonjour {name}</h1>")
+    return HTMLResponse(f"<h1>Bonjour {html.escape(name)}</h1>")
 
 
 @app.get("/files/{name:path}")
