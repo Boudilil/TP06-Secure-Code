@@ -22,6 +22,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTex
 from starlette.middleware.sessions import SessionMiddleware
 from ipaddress import IPv4Address
 from pydantic import BaseModel
+from pathlib import Path
 
 SECRET_KEY = "super-secret-key-123"
 DB_PATH = os.environ.get("DB_PATH", "shop.db")
@@ -117,7 +118,11 @@ def hello(name: str = ""):
 
 @app.get("/files/{name:path}")
 def get_file(name: str):
-    return FileResponse(os.path.join(UPLOAD_DIR, name))
+    BASE = Path(UPLOAD_DIR).resolve()
+    p = (BASE / name).resolve()
+    if not p.is_relative_to(BASE) or not p.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(p)
 
 
 @app.post("/calc")
@@ -137,7 +142,7 @@ async def import_yaml(request: Request):
 
 @app.post("/import-profile")
 async def import_profile(profile: Profile):
-    return {"profile": profile.model_dump()}
+    return {"profile": profile.dict()}
 
 
 @app.get("/fetch")
