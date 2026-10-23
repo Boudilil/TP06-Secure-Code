@@ -21,6 +21,7 @@ from fastapi import Body, FastAPI, Request, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.middleware.sessions import SessionMiddleware
 from ipaddress import IPv4Address
+from pydantic import BaseModel
 
 SECRET_KEY = "super-secret-key-123"
 DB_PATH = os.environ.get("DB_PATH", "shop.db")
@@ -33,6 +34,9 @@ log = logging.getLogger("minishop")
 app = FastAPI(title="MiniShop", debug=True)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
+class Profile(BaseModel):
+    name: str
+    age: int
 
 def db():
     conn = sqlite3.connect(DB_PATH)
@@ -127,14 +131,13 @@ def calc(data: dict = Body(...)):
 
 @app.post("/import-yaml")
 async def import_yaml(request: Request):
-    cfg = yaml.load(await request.body(), Loader=yaml.Loader)
+    cfg = yaml.safe_load(await request.body())
     return {"keys": list(cfg.keys()) if isinstance(cfg, dict) else str(type(cfg))}
 
 
 @app.post("/import-profile")
-async def import_profile(request: Request):
-    profile = pickle.loads(base64.b64decode(await request.body()))
-    return {"profile": str(profile)}
+async def import_profile(profile: Profile):
+    return {"profile": profile.model_dump()}
 
 
 @app.get("/fetch")
