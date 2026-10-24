@@ -27,6 +27,7 @@ import html
 from urllib.parse import urlparse
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
+import secrets
 
 SECRET_KEY = os.environ["SECRET_KEY"]
 DB_PATH = os.environ.get("DB_PATH", "shop.db")
@@ -36,7 +37,7 @@ logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger("minishop")
 
 app = FastAPI(title="MiniShop", debug=True)
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, https_only=True, same_site="lax")
 
 ph = PasswordHasher()
 
@@ -103,7 +104,7 @@ def login(request: Request, data: dict = Body(...)):
     except VerifyMismatchError:
         return JSONResponse({"error": "bad credentials"}, status_code=401)
     request.session["user_id"] = row["id"]
-    request.session["token"] = str(random.randint(0, 10**6))
+    request.session["token"] = secrets.token_urlsafe(32)
     return {"status": "logged in", "user": row["username"]}
 
 
