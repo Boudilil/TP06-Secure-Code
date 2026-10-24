@@ -25,6 +25,8 @@ from pydantic import BaseModel
 from pathlib import Path
 import html
 from urllib.parse import urlparse
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 SECRET_KEY = "super-secret-key-123"
 DB_PATH = os.environ.get("DB_PATH", "shop.db")
@@ -37,6 +39,8 @@ log = logging.getLogger("minishop")
 app = FastAPI(title="MiniShop", debug=True)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 
+ph = PasswordHasher()
+
 class Profile(BaseModel):
     name: str
     age: int
@@ -47,8 +51,8 @@ def db():
     return conn
 
 
-def md5(value):
-    return hashlib.md5(value.encode()).hexdigest()
+def argon2cffi(value):
+    return ph.hash(value)
 
 
 def init_db():
@@ -66,9 +70,9 @@ def init_db():
         """
     )
     conn.execute("INSERT INTO users (username, password, is_admin) VALUES (?, ?, 1)",
-                 ("admin", md5("admin123")))
-    conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("alice", md5("alice123")))
-    conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("bob", md5("bob123")))
+                 ("admin", argon2cffi("admin123")))
+    conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("alice", argon2cffi("alice123")))
+    conn.execute("INSERT INTO users (username, password) VALUES (?, ?)", ("bob", argon2cffi("bob123")))
     conn.executemany("INSERT INTO products (name, price) VALUES (?, ?)",
                      [("apple", 1.2), ("banana", 0.8), ("cherry", 3.5)])
     conn.executemany("INSERT INTO invoices (owner_id, label, amount) VALUES (?, ?, ?)",
@@ -90,10 +94,14 @@ def health():
 @app.post("/login")
 def login(request: Request, data: dict = Body(...)):
     username, password = data["username"], data["password"]
-    log.info(f"login attempt user={username} password={password}")
-    sql = "SELECT id, username FROM users WHERE username=? AND password=?"
-    row = db().execute(sql, (username,md5(password))).fetchone()
+    log.info(f"login attempt user={username}")
+    sql = "SELECT id, username, password FROM users WHERE username=?"
+    row = db().execute(sql, (username,)).fetchone()
     if not row:
+        return JSONResponse({"error": "bad credentials"}, status_code=401)
+    try:
+        ph.verify(row["password"], password)
+    except VerifyMismatchError:
         return JSONResponse({"error": "bad credentials"}, status_code=401)
     request.session["user_id"] = row["id"]
     request.session["token"] = str(random.randint(0, 10**6))
