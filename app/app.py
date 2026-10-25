@@ -17,7 +17,7 @@ import traceback
 import requests
 import uvicorn
 import yaml
-from fastapi import Body, FastAPI, Request, HTTPException
+from fastapi import Body, FastAPI, Request, HTTPException, Depends
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.middleware.sessions import SessionMiddleware
 from ipaddress import IPv4Address
@@ -40,6 +40,11 @@ app = FastAPI(title="MiniShop", debug=True)
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, https_only=True, same_site="lax")
 
 ph = PasswordHasher()
+
+ROLE_PERMS = {
+"admin": {"invoice:read","user:read", "user:delete"},
+"user": {"invoice:read"},
+}
 
 class Profile(BaseModel):
     name: str
@@ -169,24 +174,36 @@ def fetch(url: str):
 def invoice(invoice_id: int, request: Request):
     if "user_id" not in request.session:
         return JSONResponse({"error": "login required"}, status_code=401)
-    row = db().execute("SELECT * FROM invoices WHERE id = ?", (invoice_id,)).fetchone()
+    row = db().execute("SELECT * FROM invoices WHERE id = ? AND owner_id=?", (invoice_id, request.session["user_id"])).fetchone()
     if not row:
         return JSONResponse({"error": "not found"}, status_code=404)
     return dict(row)
 
+def current_user(request: Request):
+    user_id = request.session.get("user_id")
+    if user_id is None:
+        raise HTTPException(status_code=401)
+    row = db().execute("SELECT is_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=401)
+    role = "admin" if row["is_admin"] else "user"
+    return {"id": user_id, "role": role}
+
+def require(perm: str):
+    def checker(user=Depends(current_user)):
+        if perm not in ROLE_PERMS.get(user["role"], set()):
+            raise HTTPException(status_code=403)
+        return user
+    return checker
 
 @app.get("/admin/users")
-def admin_users(request: Request):
-    if "user_id" not in request.session:
-        return JSONResponse({"error": "login required"}, status_code=401)
+def admin_users( _=Depends(require("user:read"))):
     rows = db().execute("SELECT id, username, is_admin FROM users").fetchall()
     return [dict(r) for r in rows]
 
 
 @app.delete("/users/{user_id}")
-def delete_user(user_id: int, request: Request):
-    if "user_id" not in request.session:
-        return JSONResponse({"error": "login required"}, status_code=401)
+def delete_user( user_id: int, _=Depends(require("user:delete"))):
     conn = db()
     conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
