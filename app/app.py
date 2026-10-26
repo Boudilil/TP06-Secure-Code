@@ -18,6 +18,7 @@ import requests
 import uvicorn
 import yaml
 from fastapi import Body, FastAPI, Request, HTTPException, Depends
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.middleware.sessions import SessionMiddleware
 from ipaddress import IPv4Address
@@ -100,6 +101,11 @@ def init_db():
 async def handle_error(request: Request, exc: Exception):
     log.exception("unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse({"error": "internal server error"}, status_code=500)
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_validation_error(request: Request, exc: RequestValidationError):
+    return JSONResponse({"error": "invalid request"}, status_code=422)
 
 
 @app.get("/health")
