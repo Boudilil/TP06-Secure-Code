@@ -46,6 +46,16 @@ ROLE_PERMS = {
 "user": {"invoice:read"},
 }
 
+@app.middleware("http")
+async def headers(request, call_next):
+    r = await call_next(request)
+    r.headers["Content-Security-Policy"] = "default-src 'self'"
+    r.headers["X-Content-Type-Options"] = "nosniff"
+    r.headers["Strict-Transport-Security"] = "max-age=31536000"
+    r.headers["X-Frame-Options"] = "DENY"
+    return r
+
+
 class Profile(BaseModel):
     name: str
     age: int
