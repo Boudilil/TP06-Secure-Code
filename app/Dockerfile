@@ -1,6 +1,9 @@
-FROM python:latest
+FROM python:3.12-slim
 WORKDIR /app
-COPY . .
-RUN pip install -r requirements.txt
+RUN useradd --create-home --uid 10001 appuser
+COPY requirements.txt .
+RUN pip install --require-hashes --no-cache-dir -r requirements.txt
+COPY --chown=appuser:appuser . .
+USER appuser
 EXPOSE 5000
-CMD ["python", "app.py"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000"]
