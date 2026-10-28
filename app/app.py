@@ -4,15 +4,10 @@ Ne jamais déployer ce code tel quel. Votre mission : le rendre conforme.
 Documentation interactive : http://localhost:5000/docs
 """
 import ast
-import base64
-import hashlib
 import logging
 import os
-import pickle
-import random
 import sqlite3
 import subprocess
-import traceback
 
 import requests
 import uvicorn
