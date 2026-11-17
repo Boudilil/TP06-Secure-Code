@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 WORKDIR /app
 RUN useradd --create-home --uid 10001 appuser
 COPY requirements.txt .
